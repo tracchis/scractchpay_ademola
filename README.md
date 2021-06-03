@@ -21,6 +21,12 @@ Provide a RESTful API to allow search in multiple clinic providers and display r
 
 I split the package structure into three components majorly (cmd, pkg & internal)
 
+For the search, I didn't do an exact match when matching on the `name` and `state` parameters. e.g searching by `name = "Ger"` which match clinics with names like `Germany Health, health German`.
+I decided to keep it this way to allow some suggestive searches. 
+
+Additionally, the `from` and `to` parameters do a boundary check that clinics which meet the search criteria `times >= from` and `times <= to` are returned from the search API. 
+
+
 #### Concurrency Approach
 
 I used Goroutines and WaitGroup to fetch data from the two endpoints concurrently. If we do have additional endpoints

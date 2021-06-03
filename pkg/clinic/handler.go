@@ -58,7 +58,7 @@ func Search(fetcher DataFetcher) http.HandlerFunc {
 		var params SearchParams
 		err = json.Unmarshal(body, &params)
 		if err != nil {
-			l.Error("Failed parsing json to user struct", zap.Error(err))
+			l.Error("Failed parsing json to params struct", zap.Error(err))
 			httputil.JSONError(w, http.StatusBadRequest, "invalid json params", attrErrMessages)
 			return
 		}

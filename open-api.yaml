@@ -1,0 +1,51 @@
+openapi: 3.0.0
+servers:
+  - url: 'http://localhost:8000'
+    description: ''
+    variables: {}
+info:
+  version: 47f85861-6d06-41e0-b7f2-c7dbb8687c1c
+  title: Clinic Search Project - Ademola
+  description: |
+    Create a RESTful API to allow search in multiple clinic providers and display results from all the available clinics by some parameters:
+
+    - search for clinics that match parameters;
+  termsOfService: ''
+  contact: {}
+  license:
+    name: ''
+paths:
+  /v1/clinics:
+    post:
+      summary: Search for Clinics
+      operationId: SearchForClinic
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          headers: {}
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              example:
+                name: clinic name
+                state: California
+                from: 09:00
+                to: 20:00
+            example: |-
+              {
+                  "name": "sample clinic",
+                  "state": "California",
+                  "from": "09:00",
+                  "to": "20:00"
+              }
+components: {}
+security: []
+tags: []
+externalDocs:
+  url: ''
+  description: ''
+warnings: []

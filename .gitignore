@@ -1,0 +1,12 @@
+coverage.txt
+
+# Build and environment
+*.test
+*.prof
+.env
+bin/
+vendor/
+.vscode
+.idea/
+.DS_Store
+*.env

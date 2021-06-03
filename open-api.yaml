@@ -15,7 +15,7 @@ info:
   license:
     name: ''
 paths:
-  /v1/clinics:
+  /v1/clinics/search:
     post:
       summary: Search for Clinics
       operationId: SearchForClinic
@@ -42,6 +42,15 @@ paths:
                   "from": "09:00",
                   "to": "20:00"
               }
+  /v1/clinics/:
+    get:
+      summary: Get All Clinics
+      operationId: GetAllClinics
+      parameters: []
+      responses:
+        '200':
+          description: ''
+          headers: {}
 components: {}
 security: []
 tags: []

@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"sync"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/scratchpay_ademola/internal/httputil"
 	"github.com/scratchpay_ademola/internal/logger"
 	"github.com/scratchpay_ademola/internal/validatorutil"
+
+	"fmt"
+	"time"
 
 	"github.com/thedevsaddam/gojsonq/v2"
 	"go.uber.org/zap"
@@ -21,7 +23,27 @@ const (
 	dentalClinicsURL = "https://storage.googleapis.com/scratchpay-code-challenge/dental-clinics.json"
 )
 
-func Search() http.HandlerFunc {
+type DataFetcher interface {
+	GetClinicData(logger *zap.Logger) ([]Clinic, error)
+}
+
+func GetAllClinics(dataFetcher DataFetcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		l := logger.From(context.Background())
+		attrErrMessages := validatorutil.GetAttributeErrorMessages()
+
+		data, err := dataFetcher.GetClinicData(l)
+		if err != nil {
+			l.Error("error fetching clinic data")
+			httputil.JSONError(w, http.StatusInternalServerError, "error fetching all clinics", attrErrMessages)
+			return
+		}
+
+		httputil.JSONSuccess(w, http.StatusOK, data)
+	}
+}
+
+func Search(fetcher DataFetcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l := logger.From(context.Background())
 		attrErrMessages := validatorutil.GetAttributeErrorMessages()
@@ -50,19 +72,35 @@ func Search() http.HandlerFunc {
 			return
 		}
 
-		data, err := getClinicData(l)
+		data, err := fetcher.GetClinicData(l)
 		if err != nil {
 			l.Error("error fetching clinic data")
-			httputil.JSONError(w, http.StatusBadRequest, "error fetching all clinics", attrErrMessages)
+			httputil.JSONError(w, http.StatusInternalServerError, "error fetching all clinics", attrErrMessages)
+			return
 		}
 
 		d, err := json.Marshal(data)
 		query := gojsonq.New().
-			FromString(string(d)).
-			WhereContains("name", params.Name).
-			Where("state", skipEmpty(params.State), params.State).
-			Where("availability.from", skipEmpty(params.From), params.From).
-			Where("availability.to", skipEmpty(params.To), params.To)
+			FromString(string(d))
+
+		query.Macro("date<=", dateLessOrEqualTo)
+		query.Macro("date>=", dateGreaterOrEqualTo)
+
+		if params.Name != "" {
+			query.WhereContains("name", params.Name)
+		}
+
+		if params.State != "" {
+			query.WhereContains("state", params.State)
+		}
+
+		if params.To != "" {
+			query.Where("availability.from", "date>=", params.From)
+		}
+
+		if params.From != "" {
+			query.Where("availability.to", "date<=", params.To)
+		}
 
 		result := query.Get()
 
@@ -78,131 +116,30 @@ func Search() http.HandlerFunc {
 	}
 }
 
-func skipEmpty(query string) string {
-	if query == "" {
-		return "!="
+const layout = "2006-01-02"
+
+func dateLessOrEqualTo(x, y interface{}) (bool, error) {
+	xs, okx := x.(string)
+	ys, oky := y.(string)
+	if !okx || !oky {
+		return false, fmt.Errorf("date support for string only")
 	}
 
-	return "="
+	t1, _ := time.Parse(layout, xs)
+	t2, _ := time.Parse(layout, ys)
+
+	return t1.Unix() <= t2.Unix(), nil
 }
 
-func GetAllClinics() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		l := logger.From(context.Background())
-		attrErrMessages := validatorutil.GetAttributeErrorMessages()
-
-		data, err := getClinicData(l)
-		if err != nil {
-			l.Error("error fetching clinic data")
-			httputil.JSONError(w, http.StatusBadRequest, "error fetching all clinics", attrErrMessages)
-		}
-
-		httputil.JSONSuccess(w, http.StatusOK, data)
-	}
-}
-
-func fetchData(url string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Close = true
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+func dateGreaterOrEqualTo(x, y interface{}) (bool, error) {
+	xs, okx := x.(string)
+	ys, oky := y.(string)
+	if !okx || !oky {
+		return false, fmt.Errorf("date support for string only")
 	}
 
-	return body, nil
-}
+	t1, _ := time.Parse(layout, xs)
+	t2, _ := time.Parse(layout, ys)
 
-func getDentalClinics() ([]Clinic, error) {
-	body, err := fetchData(dentalClinicsURL)
-	if err != nil {
-		return nil, err
-	}
-
-	var clinics []DentalClinic
-	err = json.Unmarshal(body, &clinics)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseDentalClinics(clinics), nil
-}
-
-func parseDentalClinics(dentalClinics []DentalClinic) []Clinic {
-	var clinics []Clinic
-	for _, cl := range dentalClinics {
-		clinics = append(clinics, Clinic{
-			Name:         cl.Name,
-			State:        cl.State,
-			Availability: cl.Availability,
-		})
-	}
-
-	return clinics
-}
-
-func getVetClinics() ([]Clinic, error) {
-
-	body, err := fetchData(vetClinicsURL)
-	if err != nil {
-		return nil, err
-	}
-
-	var clinics []VetClinic
-	err = json.Unmarshal(body, &clinics)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseVetClinics(clinics), nil
-}
-
-func parseVetClinics(vetClinics []VetClinic) []Clinic {
-	var clinics []Clinic
-	for _, cl := range vetClinics {
-		clinics = append(clinics, Clinic{
-			Name:         cl.Name,
-			State:        cl.State,
-			Availability: cl.Availability,
-		})
-	}
-
-	return clinics
-}
-
-func getClinicData(logger *zap.Logger) ([]Clinic, error) {
-	var clinics []Clinic
-
-	var sg sync.WaitGroup
-	sg.Add(2)
-
-	go func() {
-		dentalClinics, err := getDentalClinics()
-		if err != nil {
-			logger.Error("error fetching dental clinics", zap.Error(err))
-		}
-		clinics = append(clinics, dentalClinics...)
-		sg.Done()
-	}()
-
-	go func() {
-		vetClinics, err := getVetClinics()
-		if err != nil {
-			logger.Error("error fetching vet clinics", zap.Error(err))
-		}
-		clinics = append(clinics, vetClinics...)
-		sg.Done()
-	}()
-
-	sg.Wait()
-	return clinics, nil
+	return t1.Unix() >= t2.Unix(), nil
 }

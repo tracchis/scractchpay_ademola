@@ -12,6 +12,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
+	"github.com/scratchpay_ademola/pkg/clinic"
 	"go.uber.org/zap"
 )
 
@@ -52,8 +53,10 @@ func main() {
 		ready.Handler(httputil.TextHandler(http.StatusOK, "application/json", `"READY"`)),
 	)
 
+	clinicDataDownloader := clinic.NewDataDownloader(log)
+
 	// init routes
-	routes := initRoutes()
+	routes := initRoutes(clinicDataDownloader)
 
 	mux.Handle("/", routes)
 

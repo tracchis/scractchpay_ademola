@@ -7,12 +7,12 @@ import (
 )
 
 // initRoutes initialize the routing configuration and return a prepared http.Handler
-func initRoutes() *chi.Mux {
+func initRoutes(fetcher clinic.DataFetcher) *chi.Mux {
 	mux := chi.NewMux()
 
 	mux.Route("/v1/clinics", func(r chi.Router) {
-		r.Post("/", clinic.Search())
-		r.Get("/", clinic.GetAllClinics())
+		r.Post("/search", clinic.Search(fetcher))
+		r.Get("/", clinic.GetAllClinics(fetcher))
 	})
 
 	return mux

@@ -52,7 +52,6 @@ func main() {
 		ready.Handler(httputil.TextHandler(http.StatusOK, "application/json", `"READY"`)),
 	)
 
-
 	// init routes
 	routes := initRoutes()
 
@@ -75,7 +74,7 @@ func main() {
 	<-ctx.Done()
 
 	// allow 15 seconds to shutdown everything gracefully
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// shutdown API server
